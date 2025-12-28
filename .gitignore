@@ -1,0 +1,31 @@
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Env & logs
+.env
+*.log
+
+# Dependencies
+/vendor/
+
+# Uploads (user-generated content)
+/public/uploads/
+public/uploads/**
+
+# Composer cache (if any)
+composer.phar
+
+# Node (not used, but safe)
+node_modules/
+
+# PHPUnit / coverage
+.phpunit.result.cache
+coverage/
+
+# Misc
+*.zip
+*.tar
+*.tar.gz

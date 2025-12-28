@@ -1,0 +1,9 @@
+/* Public copy of print.css */
+@media print {
+  nav.navbar, .btn, .assistant-fab, .assistant-modal, .no-print { display: none !important; }
+  a::after { content: ""; }
+  .card { border: none; box-shadow: none; }
+  .table { border-collapse: collapse; }
+  .table th, .table td { border: 1px solid #999 !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
