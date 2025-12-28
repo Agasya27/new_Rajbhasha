@@ -66,6 +66,7 @@ define('OCR_DENSITY_DPI', (int)($_ENV['OCR_DENSITY_DPI'] ?? 300));
 define('OCR_TESSERACT_EXE', $_ENV['OCR_TESSERACT_EXE'] ?? '');
 define('OCR_PDFTOTEXT_EXE', $_ENV['OCR_PDFTOTEXT_EXE'] ?? '');
 define('OCR_MAGICK_EXE', $_ENV['OCR_MAGICK_EXE'] ?? '');
+define('OCR_GS_EXE', $_ENV['OCR_GS_EXE'] ?? '');
 define('OCR_TESSDATA_PREFIX', $_ENV['OCR_TESSDATA_PREFIX'] ?? '');
 
 // Uploads directory

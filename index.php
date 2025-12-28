@@ -1,8 +1,4 @@
 <?php
-// Redirect to public/ for XAMPP directory access
-header('Location: public/');
-exit;
-<?php
-// Redirect to public front controller
+// Redirect to the public front controller when hitting repository root
 header('Location: public/');
 exit;

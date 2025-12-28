@@ -22,6 +22,15 @@ function json_response(array $data, int $code = 200): void {
     exit;
 }
 
+function app_lang(): string {
+    $lang = $_COOKIE['app_lang'] ?? '';
+    return in_array($lang, ['hi', 'en'], true) ? $lang : 'hi';
+}
+
+function lang_text(string $hi, string $en): string {
+    return app_lang() === 'hi' ? $hi : $en;
+}
+
 function flash_set(string $type, string $message): void {
     $_SESSION['flash'][] = ['type'=>$type,'message'=>$message];
 }

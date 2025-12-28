@@ -83,7 +83,12 @@
 				fd.append('report_id', String(reportId));
 				fd.append('file', f);
 				try{
-					const res = await fetch('upload_attachment.php', { method:'POST', body: fd });
+					const res = await fetch('upload_attachment.php', {
+						method:'POST',
+						body: fd,
+						credentials: 'same-origin',
+						headers: { 'X-CSRF-Token': csrf || '', 'Accept': 'application/json' }
+					});
 					const j = await res.json();
 					if (j.status==='ok' && upList){
 						const li = document.createElement('li');
@@ -123,23 +128,94 @@
 	const btnSuggest = document.getElementById('btnSuggest');
 	if (btnSuggest){
 		btnSuggest.addEventListener('click', async ()=>{
-			const snap = Object.fromEntries(new FormData(form).entries());
-			const fd = new FormData(); fd.append('_csrf', csrf); fd.append('snapshot', JSON.stringify(snap));
-			try{ const res = await fetch('../assistant/suggest.php', { method:'POST', body: fd }); const j = await res.json();
-				if (j){
-					const body = document.getElementById('suggestModalBody');
-					body.innerHTML = '';
-					if (j.tips) j.tips.forEach(t=> body.innerHTML += '<div>• '+t+'</div>');
-					if (j.suggestions){ body.innerHTML += '<hr><div class="text-muted">Suggested values will be applied on Apply.</div>'; }
-					const modal = new bootstrap.Modal(document.getElementById('suggestModal'));
-					const applyBtn = document.getElementById('applySuggestionsBtn');
-					applyBtn.onclick = ()=>{
-						if (j.suggestions){ for (const k in j.suggestions){ if (form[k] && j.suggestions[k]!==null && j.suggestions[k]!==undefined) { form[k].value = j.suggestions[k]; form.dispatchEvent(new Event('input', {bubbles:true})); } } }
-						modal.hide();
-					};
-					modal.show();
+			const inlineBox = document.getElementById('suggestions');
+			if (inlineBox) inlineBox.textContent = 'Loading...';
+			const snapshot = {};
+			const formValues = new FormData(form);
+			for (const [key, value] of formValues.entries()){
+				if (key === '_csrf') continue;
+				if (value instanceof File) continue;
+				if (snapshot[key] === undefined){
+					snapshot[key] = value;
+				} else if (Array.isArray(snapshot[key])) {
+					snapshot[key].push(value);
+				} else {
+					snapshot[key] = [snapshot[key], value];
 				}
-			}catch(e){ alert('Assistant error'); }
+			}
+			const fd = new FormData();
+			fd.append('_csrf', csrf);
+			fd.append('snapshot', JSON.stringify(snapshot));
+			try{
+				const res = await fetch('../assistant/suggest.php', {
+					method: 'POST',
+					body: fd,
+					credentials: 'same-origin',
+					headers: { 'X-CSRF-Token': csrf || '', 'Accept': 'application/json' }
+				});
+				const ct = res.headers.get('content-type') || '';
+				if (!res.ok || !ct.includes('application/json')){
+					if (inlineBox) inlineBox.textContent = 'Assistant unavailable.';
+					return;
+				}
+				const j = await res.json().catch(()=>null);
+				if (!j){
+					if (inlineBox) inlineBox.textContent = 'Assistant unavailable.';
+					return;
+				}
+				if (j.ok === false || j.status === 'error'){
+					if (inlineBox) inlineBox.textContent = j.error || j.message || 'Assistant unavailable.';
+					return;
+				}
+				const tips = Array.isArray(j.tips) ? j.tips : [];
+				if (inlineBox){
+					inlineBox.innerHTML = tips.length ? tips.map(t=>'<div>• '+t+'</div>').join('') : 'No recent suggestions available.';
+				}
+				const modalEl = document.getElementById('suggestModal');
+				if (modalEl){
+					const modalBody = document.getElementById('suggestModalBody');
+					if (modalBody){
+						if (tips.length){
+							modalBody.innerHTML = tips.map(t=>'<div>• '+t+'</div>').join('');
+						} else if (j.error || j.message){
+							modalBody.innerHTML = '<div class="text-danger">' + (j.error || j.message) + '</div>';
+						} else {
+							modalBody.innerHTML = '<div>No recent suggestions available.</div>';
+						}
+						if (j.suggestions){
+							modalBody.innerHTML += '<hr><div class="text-muted">Suggested values will be applied on Apply.</div>';
+						}
+					}
+					let modal = null;
+					try {
+						if (typeof bootstrap !== 'undefined' && bootstrap && typeof bootstrap.Modal === 'function') {
+							modal = bootstrap.Modal.getOrCreateInstance ? bootstrap.Modal.getOrCreateInstance(modalEl) : new bootstrap.Modal(modalEl);
+						}
+					} catch (modalErr) {
+						modal = null;
+					}
+					const applyBtn = document.getElementById('applySuggestionsBtn');
+					if (applyBtn){
+						applyBtn.onclick = ()=>{
+							if (j.suggestions){
+								for (const k in j.suggestions){
+									if (!Object.prototype.hasOwnProperty.call(j.suggestions, k)) continue;
+									const val = j.suggestions[k];
+									if (form[k] && val !== null && val !== undefined){
+										form[k].value = val;
+										form.dispatchEvent(new Event('input', { bubbles: true }));
+									}
+								}
+							}
+							if (modal) modal.hide();
+						};
+					}
+					if (modal) modal.show();
+				}
+			}catch(e){
+				if (inlineBox) inlineBox.textContent = 'Assistant error: ' + (e && e.message ? e.message : 'Please retry.');
+				if (window.console && console.error) console.error('Smart suggestion error', e);
+			}
 		});
 	}
 
@@ -147,11 +223,33 @@
 	const btnEnHi = document.getElementById('btnEnHi');
 	const txtTranslate = document.getElementById('txtTranslate');
 	const translateOut = document.getElementById('translateOut');
-	async function doTrans(to){
-		try{ const res = await fetch('../assistant/translate.php?to='+encodeURIComponent(to)+'&text='+encodeURIComponent(txtTranslate.value)); const j = await res.json(); translateOut.textContent = j.translated || ''; }catch(e){}
+	async function doTrans(direction){
+		if (!txtTranslate || !translateOut) return;
+		translateOut.textContent = '...';
+		const fd = new FormData();
+		fd.append('_csrf', csrf);
+		fd.append('text', txtTranslate.value || '');
+		fd.append('direction', direction);
+		try {
+			const res = await fetch('../assistant/translate.php', {
+				method: 'POST',
+				body: fd,
+				credentials: 'same-origin',
+				headers: { 'X-CSRF-Token': csrf || '', 'Accept': 'application/json' }
+			});
+			const ct = res.headers.get('content-type') || '';
+			if (!res.ok || !ct.includes('application/json')){
+				translateOut.textContent = 'Translation unavailable.';
+				return;
+			}
+			const j = await res.json().catch(()=>null);
+			translateOut.textContent = (j && typeof j.translated === 'string') ? j.translated : '';
+		}catch(err){
+			translateOut.textContent = 'Network error.';
+		}
 	}
-	if (btnHiEn) btnHiEn.onclick = ()=>doTrans('en');
-	if (btnEnHi) btnEnHi.onclick = ()=>doTrans('hi');
+	if (btnHiEn) btnHiEn.onclick = ()=>doTrans('hi-en');
+	if (btnEnHi) btnEnHi.onclick = ()=>doTrans('en-hi');
 
 	// ----- Section 3 dynamic rows handling -----
 	let sec3Rows = document.getElementById('sec3Rows');

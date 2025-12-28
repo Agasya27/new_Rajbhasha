@@ -105,6 +105,8 @@ if (is_post() && isset($_POST['save'])) {
 
 include __DIR__ . '/../../templates/header.php';
 echo '<link rel="stylesheet" href="'.app_base_url('assets/css/report.css').'" />';
+$reportJsPath = BASE_PATH . '/public/assets/js/report.js';
+$reportJsVersion = is_file($reportJsPath) ? (string)filemtime($reportJsPath) : (string)time();
 ?>
 <div class="row">
   <div class="col-lg-8">
@@ -321,22 +323,6 @@ updateHindiPct();
 
 // autosave now handled by assets/js/report.js
 
-document.getElementById('btnSuggest').addEventListener('click', async ()=>{
-  const fd = new FormData(); fd.append('_csrf', window.CSRF_TOKEN);
-  const res = await fetch('../assistant/suggest.php', { method:'POST', body: fd });
-  const j = await res.json();
-  const el = document.getElementById('suggestions');
-  el.innerHTML = '';
-  if (j.tips) j.tips.forEach(t=> el.innerHTML += '<div>• '+t+'</div>');
-});
-
-async function doTrans(dir){
-  const fd = new FormData(); fd.append('_csrf', window.CSRF_TOKEN); fd.append('text', document.getElementById('txtTranslate').value); fd.append('direction', dir);
-  const res = await fetch('../assistant/translate.php', { method:'POST', body: fd }); const j = await res.json();
-  document.getElementById('translateOut').textContent = j.translated || '';
-}
-document.getElementById('btnHiEn').onclick = ()=>doTrans('hi-en');
-document.getElementById('btnEnHi').onclick = ()=>doTrans('en-hi');
 
 // Removed numeric-only mask and number-only validation to allow free text input as requested
 
@@ -356,7 +342,7 @@ try {
   }
 } catch(e) {}
 </script>
-<script src="<?= app_base_url('assets/js/report.js') ?>"></script>
+<script src="<?= app_base_url('assets/js/report.js') ?>?v=<?= esc($reportJsVersion) ?>"></script>
 <!-- Suggestions Modal -->
 <div class="modal fade" id="suggestModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">

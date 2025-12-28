@@ -5,6 +5,22 @@ require_once __DIR__ . '/../lib/csrf.php';
 header('Content-Type: text/html; charset=UTF-8');
 $user = current_user();
 $flash = flash_get_all();
+$appLang = app_lang();
+$requestUri = $_SERVER['REQUEST_URI'] ?? '';
+$requestPath = parse_url($requestUri, PHP_URL_PATH) ?: '/';
+$baseUri = parse_url(app_base_url(''), PHP_URL_PATH) ?: '/';
+if ($baseUri !== '/' && str_starts_with($requestPath, $baseUri)) {
+  $relativePath = substr($requestPath, strlen($baseUri));
+} else {
+  $relativePath = ltrim($requestPath, '/');
+}
+if ($relativePath === '' || $relativePath === false) { $relativePath = 'dashboard.php'; }
+$requestQuery = parse_url($requestUri, PHP_URL_QUERY) ?: '';
+$relativeTarget = $requestQuery ? ($relativePath . '?' . $requestQuery) : $relativePath;
+$hiToggleUrl = app_base_url('toggle_lang.php?' . http_build_query(['lang' => 'hi', 'return' => $relativeTarget]));
+$enToggleUrl = app_base_url('toggle_lang.php?' . http_build_query(['lang' => 'en', 'return' => $relativeTarget]));
+$hiBtnClass = $appLang === 'hi' ? 'btn btn-sm btn-light text-dark' : 'btn btn-sm btn-outline-light';
+$enBtnClass = $appLang === 'en' ? 'btn btn-sm btn-light text-dark' : 'btn btn-sm btn-outline-light';
 
 // Resolve navbar brand logo from images folder(s)
 $brandLogoDataUrl = '';
@@ -55,7 +71,7 @@ try {
 } catch (Throwable $e) { /* ignore */ }
 ?>
 <!doctype html>
-<html lang="hi">
+<html lang="<?= esc($appLang) ?>">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -84,20 +100,20 @@ try {
     <div class="collapse navbar-collapse" id="navbarsExample">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <?php if ($user): ?>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('dashboard.php') ?>">डैशबोर्ड / Dashboard</a></li>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('report/list.php') ?>">रिपोर्ट्स / Reports</a></li>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('analytics.php') ?>">एनालिटिक्स / Analytics</a></li>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('assistant/index.php') ?>" title="Smart Rajbhasha Assistant">Assistant</a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('dashboard.php') ?>"><?= esc(lang_text('डैशबोर्ड', 'Dashboard')) ?></a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('report/list.php') ?>"><?= esc(lang_text('रिपोर्ट्स', 'Reports')) ?></a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('analytics.php') ?>"><?= esc(lang_text('एनालिटिक्स', 'Analytics')) ?></a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('assistant/index.php') ?>" title="Smart Rajbhasha Assistant"><?= esc(lang_text('सहायक', 'Assistant')) ?></a></li>
         <?php if (in_array($user['role'], ['super_admin','reviewer'])): ?>
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">प्रशासन</a>
+          <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><?= esc(lang_text('प्रशासन', 'Administration')) ?></a>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="<?= app_base_url('admin/users.php') ?>">Users</a></li>
+            <li><a class="dropdown-item" href="<?= app_base_url('admin/users.php') ?>"><?= esc(lang_text('उपयोगकर्ता', 'Users')) ?></a></li>
             <?php if (in_array($user['role'], ['super_admin'])): ?>
-            <li><a class="dropdown-item" href="<?= app_base_url('admin/units.php') ?>">Units</a></li>
-            <li><a class="dropdown-item" href="<?= app_base_url('admin/backup_db.php') ?>">Backup Database</a></li>
+            <li><a class="dropdown-item" href="<?= app_base_url('admin/units.php') ?>"><?= esc(lang_text('इकाइयाँ', 'Units')) ?></a></li>
+            <li><a class="dropdown-item" href="<?= app_base_url('admin/backup_db.php') ?>"><?= esc(lang_text('डेटाबेस बैकअप', 'Backup Database')) ?></a></li>
             <?php endif; ?>
-            <li><a class="dropdown-item" href="<?= app_base_url('admin/settings.php') ?>">Approvals</a></li>
+            <li><a class="dropdown-item" href="<?= app_base_url('admin/settings.php') ?>"><?= esc(lang_text('अनुमोदन', 'Approvals')) ?></a></li>
           </ul>
         </li>
         <?php endif; ?>
@@ -106,15 +122,15 @@ try {
       <ul class="navbar-nav">
         <li class="nav-item me-2">
           <div class="btn-group btn-group-sm" role="group" aria-label="Language toggle">
-            <a class="btn btn-outline-light" href="<?= app_base_url('toggle_lang.php?lang=hi') ?>">🇮🇳 हिंदी</a>
-            <a class="btn btn-outline-light" href="<?= app_base_url('toggle_lang.php?lang=en') ?>">🇬🇧 English</a>
+            <a class="<?= esc($hiBtnClass) ?>" href="<?= esc($hiToggleUrl) ?>">🇮🇳 हिंदी</a>
+            <a class="<?= esc($enBtnClass) ?>" href="<?= esc($enToggleUrl) ?>">🇬🇧 English</a>
           </div>
         </li>
         <?php if ($user): ?>
         <li class="nav-item"><span class="navbar-text me-3">👤 <?= esc($user['name']) ?> (<?= esc($user['role']) ?>)</span></li>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('logout.php') ?>">लॉगआउट</a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('logout.php') ?>"><?= esc(lang_text('लॉगआउट', 'Logout')) ?></a></li>
         <?php else: ?>
-        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('login.php') ?>">लॉगिन</a></li>
+        <li class="nav-item"><a class="nav-link" href="<?= app_base_url('login.php') ?>"><?= esc(lang_text('लॉगिन', 'Login')) ?></a></li>
         <?php endif; ?>
       </ul>
     </div>

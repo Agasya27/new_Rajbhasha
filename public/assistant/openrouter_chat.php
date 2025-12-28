@@ -7,6 +7,10 @@ if (!function_exists('openrouter_chat')) {
   $or = __DIR__ . '/../../lib/openrouter.php';
   if (is_file($or)) { require_once $or; }
 }
+if (!function_exists('normalize_hindi_phonetics')) {
+  $norm = __DIR__ . '/../../lib/hindi_normalizer.php';
+  if (is_file($norm)) { require_once $norm; }
+}
 
 // Require login to prevent exposing your key to anonymous traffic
 if (!is_logged_in()) {
@@ -47,15 +51,27 @@ if (ASSISTANT_KNOWLEDGE_ENABLED) {
     $readme = BASE_PATH . '/README.md';
     if (is_file($readme)) { $files[] = $readme; }
     $needle = mb_strtolower($prompt);
+    $needleNorm = function_exists('normalize_hindi_phonetics') ? normalize_hindi_phonetics($needle) : $needle;
+    $promptTokens = array_filter(preg_split('/\s+/', $needle));
+    $promptTokensNorm = ($needleNorm !== $needle) ? array_filter(preg_split('/\s+/', $needleNorm)) : [];
+    $promptWords = array_unique(array_merge($promptTokens, $promptTokensNorm));
     $ranked = [];
     foreach ($files as $f) {
       $txt = @file_get_contents($f);
       if ($txt === false) continue;
       $lc = mb_strtolower($txt);
+      $lcNorm = function_exists('normalize_hindi_phonetics') ? normalize_hindi_phonetics($lc) : $lc;
       // naive score: count of prompt words present
       $score = 0;
-      foreach (preg_split('/\s+/', $needle) as $w) {
-        if ($w !== '' && mb_strpos($lc, $w) !== false) $score++;
+      foreach ($promptWords as $w) {
+        if ($w === '') continue;
+        if (mb_strpos($lc, $w) !== false) {
+          $score++;
+          continue;
+        }
+        if ($lcNorm !== $lc && mb_strpos($lcNorm, $w) !== false) {
+          $score++;
+        }
       }
       $ranked[] = ['file'=>$f,'score'=>$score,'text'=>$txt];
     }

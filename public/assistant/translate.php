@@ -22,35 +22,80 @@ $pdo = db();
 $map = [];
 try {
     foreach ($pdo->query('SELECT term_hi, term_en FROM glossary') as $g) {
-        $map[$g['term_hi']] = $g['term_en'];
+        if (!empty($g['term_hi']) && !empty($g['term_en'])) {
+            $map[$g['term_hi']] = $g['term_en'];
+        }
     }
 } catch (Throwable $e) { /* table may not exist yet */ }
 
-// Fallback dictionary
+// Fallback dictionary ensures minimum useful coverage even if DB lacks entries
+$fallback = [
+    'हिंदी' => 'Hindi',
+    'अंग्रेजी' => 'English',
+    'पत्र' => 'letter',
+    'जवाब' => 'reply',
+    'प्रतिशत' => 'percent',
+    'औसत' => 'average'
+];
 if (!$map) {
-    $map = [ 'हिंदी' => 'Hindi', 'अंग्रेजी' => 'English', 'पत्र' => 'letter', 'जवाब' => 'reply', 'प्रतिशत' => 'percent', 'औसत' => 'average' ];
+    $map = $fallback;
+} else {
+    foreach ($fallback as $hi => $en) {
+        if (!isset($map[$hi])) { $map[$hi] = $en; }
+    }
 }
 
 // Apply token-wise glossary substitution; if no change, preserve original text
 $translated = '';
 if ($text !== '') {
-    $tokens = preg_split('/(\s+|([\.,;:\-\!\?\(\)\[\]\{\}]))/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
-    $flip = array_flip($map);
     $hiToEn = ($direction === 'hi-en');
+    $normalize = static function (string $token): string {
+        $token = trim($token);
+        if ($token === '') { return ''; }
+        return mb_strtolower($token, 'UTF-8');
+    };
+
+    $matchCase = static function (string $replacement, string $original): string {
+        if (!preg_match('/[A-Za-z]/', $original)) {
+            return $replacement; // Non-Latin scripts don't need casing heuristics
+        }
+        $upperOrig = mb_strtoupper($original, 'UTF-8');
+        $lowerOrig = mb_strtolower($original, 'UTF-8');
+        if ($original === $upperOrig) {
+            return mb_strtoupper($replacement, 'UTF-8');
+        }
+        if ($original === $lowerOrig) {
+            return mb_strtolower($replacement, 'UTF-8');
+        }
+        $first = mb_substr($replacement, 0, 1, 'UTF-8');
+        $rest = mb_substr($replacement, 1, null, 'UTF-8');
+        return mb_strtoupper($first, 'UTF-8') . $rest;
+    };
+
+    $hiLex = [];
+    $enLex = [];
+    foreach ($map as $hi => $en) {
+        $normHi = $normalize($hi);
+        $normEn = $normalize($en);
+        if ($normHi !== '') { $hiLex[$normHi] = $en; }
+        if ($normEn !== '') { $enLex[$normEn] = $hi; }
+    }
+
+    $tokens = preg_split('/(\s+|([\.,;:\-\!\?\(\)\[\]\{\}]))/u', $text, -1, PREG_SPLIT_DELIM_CAPTURE);
     foreach ($tokens as $tok) {
-        // Skip pure delimiters/spaces through
         if ($tok === null || $tok === '') { $translated .= $tok; continue; }
-        $key = $hiToEn ? $tok : $tok;
-        // Exact match
-        if ($hiToEn && isset($map[$key])) {
-            $translated .= $map[$key];
-        } elseif (!$hiToEn && isset($flip[$key])) {
-            $translated .= $flip[$key];
+        $normTok = $normalize($tok);
+        if ($normTok === '') { $translated .= $tok; continue; }
+
+        if ($hiToEn && isset($hiLex[$normTok])) {
+            $translated .= $matchCase($hiLex[$normTok], $tok);
+        } elseif (!$hiToEn && isset($enLex[$normTok])) {
+            $translated .= $enLex[$normTok];
         } else {
             $translated .= $tok;
         }
     }
-    // If result is still identical, leave as original to avoid empty output complaints
+
     if ($translated === '' || $translated === $text) { $translated = $text; }
 }
 

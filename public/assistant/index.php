@@ -20,24 +20,6 @@ include __DIR__ . '/../../templates/header.php';
     </div>
 
     <div class="card mb-3">
-      <div class="card-header">Translate (Glossary)</div>
-      <div class="card-body">
-        <div class="input-group">
-          <input id="translate-text" class="form-control" placeholder="Enter text to translate" />
-          <select id="translate-to" class="form-select" style="max-width:140px;">
-            <option value="en">Hindi → English</option>
-            <option value="hi">English → Hindi</option>
-          </select>
-          <button id="translate-btn" class="btn btn-secondary">Translate</button>
-        </div>
-        <div class="mt-2">
-          <div class="form-text">Uses glossary; cloud translation is optional via .env</div>
-          <pre id="translate-out" class="p-2 border rounded" style="min-height:80px;"></pre>
-        </div>
-      </div>
-    </div>
-
-    <div class="card mb-3">
       <div class="card-header">OCR (Hindi + English)</div>
       <div class="card-body">
         <form id="ocr-form">
@@ -93,22 +75,6 @@ include __DIR__ . '/../../templates/header.php';
         chatEl.textContent += "\n\nAssistant: " + (data?.error || data?.message || 'Error');
       }
     }catch(e){ chatEl.textContent += "\n\nAssistant: Network error."; }
-  });
-
-  // Translate
-  document.getElementById('translate-btn').addEventListener('click', async ()=>{
-    const text = document.getElementById('translate-text').value.trim();
-    const to = document.getElementById('translate-to').value;
-    const out = document.getElementById('translate-out');
-    out.textContent = '';
-    try{
-      const url = base+'assistant/translate.php?'+new URLSearchParams({ text, to });
-      const resp = await fetch(url, { credentials:'include' });
-      const ct = resp.headers.get('content-type')||'';
-      if(!ct.includes('application/json')){ out.textContent = await resp.text(); return; }
-      const data = await resp.json();
-      out.textContent = (data && typeof data.translated==='string') ? data.translated : '';
-    }catch(e){ out.textContent = 'Network error'; }
   });
 
   // OCR

@@ -83,7 +83,28 @@ if ($ext === 'pdf') {
     if ($text === '') {
         $tesseract = get_tool_path('tesseract');
         $magick = get_tool_path('magick'); // ImageMagick v7 CLI
+        // Ensure PATH includes user-provided binary directories so ImageMagick can find delegates like Ghostscript
+        $binDirs = [];
+        foreach (['OCR_TESSERACT_EXE', 'OCR_PDFTOTEXT_EXE', 'OCR_MAGICK_EXE', 'OCR_GS_EXE'] as $const) {
+            if (defined($const) && constant($const)) {
+                $dir = dirname((string)constant($const));
+                if ($dir && !in_array($dir, $binDirs, true)) {
+                    $binDirs[] = $dir;
+                }
+            }
+        }
+        if ($binDirs) {
+            $currentPath = getenv('PATH') ?: '';
+            $prefix = implode(PATH_SEPARATOR, $binDirs);
+            if ($currentPath === '' || strpos($currentPath, $prefix) !== 0) {
+                @putenv('PATH=' . $prefix . PATH_SEPARATOR . $currentPath);
+            }
+        }
         if ($tesseract && defined('OCR_TESSDATA_PREFIX') && OCR_TESSDATA_PREFIX) { @putenv('TESSDATA_PREFIX='.OCR_TESSDATA_PREFIX); }
+        if ($magick && defined('OCR_GS_EXE') && OCR_GS_EXE) {
+            @putenv('GS_PROG=' . OCR_GS_EXE);
+            @putenv('MAGICK_GS_COMMAND=' . OCR_GS_EXE);
+        }
         if ($tesseract && $magick) {
             $tmpBase = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ocr_pdf_' . uniqid();
             $max = max(1, (int)OCR_MAX_PAGES);
